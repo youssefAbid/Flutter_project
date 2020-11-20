@@ -2,13 +2,18 @@
 import 'package:esprit_ebook_app/constants.dart';
 import 'package:flutter/material.dart';
 
-class BookRating extends StatelessWidget {
+class BookRating extends StatefulWidget {
   final double score;
   const BookRating({
     Key key,
     this.score,
   }) : super(key: key);
 
+  @override
+  _BookRatingState createState() => _BookRatingState();
+}
+
+class _BookRatingState extends State<BookRating> {
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -33,7 +38,7 @@ class BookRating extends StatelessWidget {
           ),
           SizedBox(height: 5),
           Text(
-            "$score",
+            "${widget.score}",
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.bold,

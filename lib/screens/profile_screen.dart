@@ -1,7 +1,15 @@
 
+import 'package:esprit_ebook_app/models/user.dart';
+import 'package:esprit_ebook_app/screens/avatar_screen.dart';
+import 'package:esprit_ebook_app/utils/app_config.dart';
+import 'package:esprit_ebook_app/widgets/app_dialogs.dart';
 import 'package:esprit_ebook_app/widgets/profile_avatar.dart';
 import 'package:esprit_ebook_app/widgets/profile_setting_dialog.dart';
 import 'package:flutter/material.dart';
+import 'package:global_configuration/global_configuration.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class ProfilScreen extends StatefulWidget {
   @override
@@ -9,6 +17,72 @@ class ProfilScreen extends StatefulWidget {
 }
 
 class _ProfilScreenState extends State<ProfilScreen> {
+  Dialogs dialog = new Dialogs();
+  final String urlimg ='${GlobalConfiguration().getString('img_server')}avatar/';
+
+  editUser(User user) async {
+    final String url = '${GlobalConfiguration().getString('base_url')}user';
+    SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
+    final key = 'token';
+    final value = sharedPreferences.get(key) ?? 0;
+    print("Token From SP : " + value);
+    Map data = {
+      'email': user.email,
+      'phone': user.phone,
+      'fname': user.fname,
+      'lname': user.lname,
+      'about': user.about,
+    };
+    print(data);
+    var body = json.encode(data);
+    var jsonResponse = null;
+    var response = await http.post(url,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $value"
+        }, body: body);
+    jsonResponse = json.decode(response.body);
+    print(jsonResponse.toString());
+
+    if (response.statusCode == 200) {
+      if (jsonResponse != null) {
+        if (jsonResponse["status"] == "success") {
+          setState(() {
+            AppConfig.MAIN_USER.fname = jsonResponse["user"]["fname"];
+            AppConfig.MAIN_USER.lname = jsonResponse["user"]["lname"];
+            AppConfig.MAIN_USER.email = jsonResponse["user"]["email"];
+            AppConfig.MAIN_USER.phone = jsonResponse["user"]["phone"];
+            AppConfig.MAIN_USER.about = jsonResponse["user"]["about"];
+          });
+          print("-----------> DONE");
+          // Navigator.of(context).pushAndRemoveUntil(
+          //     MaterialPageRoute(
+          //         builder: (BuildContext context) => HomeScreen()),
+          //         (Route<dynamic> route) => false);
+        } else {
+          dialog.information(context, "Échouer", "Probleme Dddd.");
+        }
+      }
+    } else if (response.statusCode == 404) {
+      dialog.information(context, "Échouer", "ُEmail Deja Existe");
+    } else {
+      dialog.information(
+          context, "Échouer", "Probleme De Connection a Serveur");
+    }
+  }
+
+  @override
+  void initState() {
+    // TODO: implement initState
+    currentUser.value.email = AppConfig.MAIN_USER.email;
+    currentUser.value.fname = AppConfig.MAIN_USER.fname;
+    currentUser.value.lname = AppConfig.MAIN_USER.lname;
+    currentUser.value.phone = AppConfig.MAIN_USER.phone;
+    currentUser.value.about = AppConfig.MAIN_USER.about;
+    super.initState();
+  }
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -21,7 +95,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
           ),
         ),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.start,
           children: <Widget>[
             SingleChildScrollView(
               padding: EdgeInsets.symmetric(vertical: 7),
@@ -35,12 +109,12 @@ class _ProfilScreenState extends State<ProfilScreen> {
                           child: Column(
                             children: <Widget>[
                               Text(
-                                "SaifEddine Rhouma",
+                                AppConfig.MAIN_USER.fname+" "+AppConfig.MAIN_USER.lname,
                                 textAlign: TextAlign.left,
                                 style: Theme.of(context).textTheme.headline6,
                               ),
                               Text(
-                                "x199103@gmail.com",
+                                AppConfig.MAIN_USER.email,
                                 style: Theme.of(context).textTheme.caption,
                               )
                             ],
@@ -53,10 +127,17 @@ class _ProfilScreenState extends State<ProfilScreen> {
                             child: InkWell(
                               borderRadius: BorderRadius.circular(300),
                               onTap: () {
-                                Navigator.of(context).pushNamed('/Profile');
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) {
+                                      return EditAvatar();
+                                    },
+                                  ),
+                                );
                               },
                               child: CircleAvatar(
-                                backgroundImage: NetworkImage("http://www.restaurant-latrattoria.com/mrl/public/images/image_default.png"),
+                                backgroundImage: NetworkImage(urlimg+AppConfig.MAIN_USER.avatar),
                               ),
                             )),
                       ],
@@ -84,9 +165,12 @@ class _ProfilScreenState extends State<ProfilScreen> {
                             minWidth: 50.0,
                             height: 25.0,
                             child: ProfileSettingsDialog(
-                              onChanged: () {
-                                //setState(() {});
-                              },
+                              user: currentUser.value,
+                                onChanged: () {
+
+                                    editUser(currentUser.value);
+
+                                },
                             ),
                           ),
                         ),
@@ -94,11 +178,23 @@ class _ProfilScreenState extends State<ProfilScreen> {
                           onTap: () {},
                           dense: true,
                           title: Text(
-                            "Full Name",
+                            "First Name",
                             style: Theme.of(context).textTheme.bodyText2,
                           ),
                           trailing: Text(
-                            "SaifEddine Rhouma",
+                            AppConfig.MAIN_USER.fname,
+                            style: TextStyle(color: Theme.of(context).focusColor),
+                          ),
+                        ),
+                        ListTile(
+                          onTap: () {},
+                          dense: true,
+                          title: Text(
+                            "Last Name",
+                            style: Theme.of(context).textTheme.bodyText2,
+                          ),
+                          trailing: Text(
+                            AppConfig.MAIN_USER.lname,
                             style: TextStyle(color: Theme.of(context).focusColor),
                           ),
                         ),
@@ -110,7 +206,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
                             style: Theme.of(context).textTheme.bodyText2,
                           ),
                           trailing: Text(
-                            "x199103@gmail.com",
+                            AppConfig.MAIN_USER.email,
                             style: TextStyle(color: Theme.of(context).focusColor),
                           ),
                         ),
@@ -122,21 +218,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
                             style: Theme.of(context).textTheme.bodyText2,
                           ),
                           trailing: Text(
-                            "93 414 888",
-                            style: TextStyle(color: Theme.of(context).focusColor),
-                          ),
-                        ),
-                        ListTile(
-                          onTap: () {},
-                          dense: true,
-                          title: Text(
-                            "Address",
-                            style: Theme.of(context).textTheme.bodyText2,
-                          ),
-                          trailing: Text(
-                           "currentUser.value.",
-                            overflow: TextOverflow.fade,
-                            softWrap: false,
+                            AppConfig.MAIN_USER.phone,
                             style: TextStyle(color: Theme.of(context).focusColor),
                           ),
                         ),
@@ -148,7 +230,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
                             style: Theme.of(context).textTheme.bodyText2,
                           ),
                           trailing: Text(
-                            "Helper.limitString",
+                            AppConfig.MAIN_USER.about,
                             overflow: TextOverflow.fade,
                             softWrap: false,
                             style: TextStyle(color: Theme.of(context).focusColor),
@@ -158,69 +240,69 @@ class _ProfilScreenState extends State<ProfilScreen> {
                     ),
                   ),
 
-                  Container(
-                    margin: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(6),
-                      boxShadow: [BoxShadow(color: Theme.of(context).hintColor.withOpacity(0.15), offset: Offset(0, 3), blurRadius: 10)],
-                    ),
-                    child: ListView(
-                      shrinkWrap: true,
-                      primary: false,
-                      children: <Widget>[
-                        ListTile(
-                          leading: Icon(Icons.settings),
-                          title: Text(
-                            "Application Settings",
-                            style: Theme.of(context).textTheme.bodyText1,
-                          ),
-                        ),
-                        ListTile(
-                          onTap: () {
-                          },
-                          dense: true,
-                          title: Row(
-                            children: <Widget>[
-                              Icon(
-                                Icons.translate,
-                                size: 22,
-                                color: Theme.of(context).focusColor,
-                              ),
-                              SizedBox(width: 10),
-                              Text(
-                                'Languages',
-                                style: Theme.of(context).textTheme.bodyText2,
-                              ),
-                            ],
-                          ),
-                          trailing: Text(
-                            "english",
-                            style: TextStyle(color: Theme.of(context).focusColor),
-                          ),
-                        ),
-                        ListTile(
-                          onTap: () {
-                          },
-                          dense: true,
-                          title: Row(
-                            children: <Widget>[
-                              Icon(
-                                Icons.place,
-                                size: 22,
-                                color: Theme.of(context).focusColor,
-                              ),
-                              SizedBox(width: 10),
-                              Text(
-                               'Delivery Addresses',
-                                style: Theme.of(context).textTheme.bodyText2,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  // Container(
+                  //   margin: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                  //   decoration: BoxDecoration(
+                  //     color: Colors.white,
+                  //     borderRadius: BorderRadius.circular(6),
+                  //     boxShadow: [BoxShadow(color: Theme.of(context).hintColor.withOpacity(0.15), offset: Offset(0, 3), blurRadius: 10)],
+                  //   ),
+                  //   child: ListView(
+                  //     shrinkWrap: true,
+                  //     primary: false,
+                  //     children: <Widget>[
+                  //       ListTile(
+                  //         leading: Icon(Icons.settings),
+                  //         title: Text(
+                  //           "Application Settings",
+                  //           style: Theme.of(context).textTheme.bodyText1,
+                  //         ),
+                  //       ),
+                  //       ListTile(
+                  //         onTap: () {
+                  //         },
+                  //         dense: true,
+                  //         title: Row(
+                  //           children: <Widget>[
+                  //             Icon(
+                  //               Icons.translate,
+                  //               size: 22,
+                  //               color: Theme.of(context).focusColor,
+                  //             ),
+                  //             SizedBox(width: 10),
+                  //             Text(
+                  //               'Languages',
+                  //               style: Theme.of(context).textTheme.bodyText2,
+                  //             ),
+                  //           ],
+                  //         ),
+                  //         trailing: Text(
+                  //           "english",
+                  //           style: TextStyle(color: Theme.of(context).focusColor),
+                  //         ),
+                  //       ),
+                  //       ListTile(
+                  //         onTap: () {
+                  //         },
+                  //         dense: true,
+                  //         title: Row(
+                  //           children: <Widget>[
+                  //             Icon(
+                  //               Icons.place,
+                  //               size: 22,
+                  //               color: Theme.of(context).focusColor,
+                  //             ),
+                  //             SizedBox(width: 10),
+                  //             Text(
+                  //              'Delivery Addresses',
+                  //               style: Theme.of(context).textTheme.bodyText2,
+                  //             ),
+                  //           ],
+                  //         ),
+                  //       ),
+                  //     ],
+                  //   ),
+                  // ),
                 ],
               ),
             )
